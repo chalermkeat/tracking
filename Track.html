@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Kanit', sans-serif; background-color: #f3f4f6; }
+    .theme-blue { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+    .loader { border-top-color: currentColor; animation: spinner 1s linear infinite; }
+    @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+  <div class="max-w-xl mx-auto md:pt-10 md:px-4">
+    <div class="bg-white md:rounded-[2.5rem] shadow-2xl overflow-hidden min-h-screen md:min-h-0 animate-fade-in">
+      
+      <div class="theme-blue p-8 pb-12 text-white text-center relative overflow-hidden">
+        <div class="absolute top-0 right-0 opacity-10 transform translate-x-5 -translate-y-5">
+          <span class="text-9xl">🚚</span>
+        </div>
+        <h1 class="text-3xl font-bold mb-2">BUEMFOOD</h1>
+        <p class="text-sm opacity-90 font-light tracking-wide">เช็คสถานะพัสดุของคุณ</p>
+      </div>
+
+      <div class="p-6 -mt-8 relative z-10">
+        <div class="bg-white p-2 rounded-3xl shadow-xl border border-blue-50 flex gap-2 mb-8">
+          <input type="tel" id="phoneInput" placeholder="กรอกเบอร์โทรศัพท์ 10 หลัก..." 
+                 class="flex-1 p-4 rounded-2xl outline-none text-lg font-bold text-blue-900 placeholder-gray-300">
+          <button onclick="handleSearch()" class="theme-blue text-white px-6 py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-all">
+            ค้นหา
+          </button>
+        </div>
+
+        <div id="resultArea" class="space-y-4">
+          </div>
+
+        <div id="loader" class="hidden py-10 text-center">
+          <div class="loader rounded-full border-4 border-t-4 border-gray-100 h-12 w-12 mx-auto mb-4 text-blue-500"></div>
+          <p class="text-gray-400 font-bold animate-pulse">กำลังค้นหาข้อมูล...</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let searchResults = [];
+
+    function handleSearch() {
+      const phone = document.getElementById('phoneInput').value;
+      if (phone.length < 9) return alert('กรุณากรอกเบอร์โทรให้ถูกต้องครับ');
+
+      const resultArea = document.getElementById('resultArea');
+      const loader = document.getElementById('loader');
+
+      resultArea.innerHTML = '';
+      loader.classList.remove('hidden');
+
+      google.script.run.withSuccessHandler(res => {
+        loader.classList.add('hidden');
+        searchResults = res;
+
+        if (res.length === 0) {
+          resultArea.innerHTML = `
+            <div class="text-center py-10 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+              <span class="text-5xl block mb-4">😿</span>
+              <p class="text-gray-500 font-bold">ไม่พบข้อมูลออเดอร์ครับ</p>
+            </div>`;
+          return;
+        }
+
+        res.forEach((item, index) => {
+          const trackId = String(item.track || "").trim();
+          const link = getCarrierLink(item.carrier, trackId);
+          
+          // สร้างข้อความไว้รอโชว์เป็น Preview
+          const msgPreview = item.track 
+            ? `คุณ ${item.name}\nเลขพัสดุของคุณคือ: ${trackId}\nเช็คสถานะได้ที่นี่: ${link}`
+            : "";
+
+          const trackStatus = item.track 
+            ? `<span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-[10px] font-bold">สินค้าส่งออกจากร้านแล้ว</span>`
+            : `<span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-[10px] font-bold">กำลังเตรียมของ</span>`;
+
+          resultArea.innerHTML += `
+            <div class="bg-white border-2 border-blue-50 p-5 rounded-[2rem] shadow-sm mb-4 animate-fade-in">
+              <div class="flex justify-between items-start mb-4">
+                <div>
+                  <h3 class="font-bold text-blue-900 text-lg">คุณ ${item.name}</h3>
+                  <p class="text-xs text-gray-400">${item.product} ${item.flavor}</p>
+                </div>
+                ${trackStatus}
+              </div>
+              
+              <div class="bg-gray-50 p-4 rounded-2xl mb-4 text-center">
+                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">เลขพัสดุ (${item.carrier || 'อัตโนมัติ'})</p>
+                <p class="font-mono font-bold text-blue-600 text-xl">${item.track || 'รอเลขพัสดุ...'}</p>
+              </div>
+
+              ${item.track ? `
+                <button onclick="copyToCustomer(${index})" 
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg mb-4">
+                  🔗 <span>คัดลอกเลขพัสดุ</span>
+                </button>
+
+                <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                  <p class="text-[10px] text-blue-400 font-bold mb-2 uppercase tracking-wider">เลขพัสดุของคุณคือ:</p>
+                  <p class="text-[10px] text-blue-800 leading-relaxed whitespace-pre-line font-medium">${msgPreview}</p>
+                </div>
+              ` : ''}
+            </div>`;
+        });
+      }).searchByPhone(phone);
+    }
+
+    // ฟังก์ชันสร้างลิ้งค์พัสดุ (Smart Detection)
+    function getCarrierLink(carrier, trackId) {
+      const track = String(trackId || "").trim().toUpperCase();
+      const carrierInput = String(carrier || "").toLowerCase().trim();
+      if (!track) return "";
+
+      const config = {
+        flash: "https://www.flashexpress.co.th/tracking/?track_number=",
+        thailandpost: "https://track.thailandpost.co.th/?trackNumber=",
+        jnt: "https://www.jtexpress.co.th/index/query/gzquery.html?billcode=",
+        kerry: "https://th.kerryexpress.com/th/track/?track=",
+        best: "https://www.best-inc.co.th/track?bills=",
+        shopee: "https://spx.co.th/m/track?btns="
+      };
+
+      let baseUrl = "";
+      if (carrierInput.includes("flash") || carrierInput.includes("แฟลช")) baseUrl = config.flash;
+      else if (carrierInput.includes("ไปรษณีย์") || carrierInput.includes("ems")) baseUrl = config.thailandpost;
+      else if (carrierInput.includes("j&t") || carrierInput.includes("jnt")) baseUrl = config.jnt;
+      else if (carrierInput.includes("kerry") || carrierInput.includes("เคอรี่")) baseUrl = config.kerry;
+      else if (carrierInput.includes("shopee") || carrierInput.includes("spx")) baseUrl = config.shopee;
+
+      if (!baseUrl) {
+        if (track.startsWith("TH") || (track.length === 12 && track.startsWith("8"))) baseUrl = config.flash;
+        else if (/^[A-Z]{2}\d{9}TH$/.test(track)) baseUrl = config.thailandpost;
+        else if (track.startsWith("SHP") || track.startsWith("SPX")) baseUrl = config.shopee;
+        else if (track.length === 12 && (track.startsWith("82") || track.startsWith("61"))) baseUrl = config.jnt;
+        else if (track.startsWith("KEX") || track.startsWith("KER") || track.startsWith("12")) baseUrl = config.kerry;
+      }
+
+      return (baseUrl || "https://www.google.com/search?q=เช็คพัสดุ+") + track;
+    }
+
+    // ฟังก์ชันคัดลอกส่งลูกค้า
+    function copyToCustomer(index) {
+      const item = searchResults[index];
+      const trackId = String(item.track).trim();
+      const link = getCarrierLink(item.carrier, trackId);
+      const msg = `คุณ ${item.name}\nเลขพัสดุของคุณคือ: ${trackId}\nเช็คสถานะได้ที่นี่: ${link}`;
+
+      const dummy = document.createElement("textarea");
+      document.body.appendChild(dummy);
+      dummy.value = msg;
+      dummy.select();
+      try {
+        document.execCommand("copy");
+        alert("📋 คัดลอกข้อความของ คุณ " + item.name + " เรียบร้อย!");
+      } catch (err) {
+        alert("❌ คัดลอกไม่สำเร็จ");
+      }
+      document.body.removeChild(dummy);
+    }
+  </script>
+</body>
+</html>
