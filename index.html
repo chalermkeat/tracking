@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Kanit', sans-serif; background-color: #f3f4f6; }
+    
+    /* สีประจำแต่ละแท็บ */
+    .theme-green { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+    .theme-blue { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+    .theme-purple { background: linear-gradient(135deg, #4c1d95 0%, #8b5cf6 100%); }
+    
+    .loader { border-top-color: currentColor; animation: spinner 1s linear infinite; }
+    @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* แต่ง Scrollbar ซ่อนในมือถือ แต่โฉบเฉี่ยวในคอม */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    
+    /* ซ่อน Scrollbar ของเมนูในมือถือ */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+  <div class="max-w-4xl mx-auto md:pt-8 md:px-4">
+    <div class="bg-white md:rounded-3xl shadow-2xl overflow-hidden md:border border-gray-100 min-h-screen md:min-h-[800px] flex flex-col relative">
+      
+      <div id="headerBar" class="theme-green transition-all duration-500 ease-in-out text-white relative overflow-hidden pb-8">
+        <div class="p-8 pb-12 text-center relative z-10">
+          <div class="absolute top-0 right-0 opacity-10 transform translate-x-5 -translate-y-5">
+            <span class="text-9xl">📦</span>
+          </div>
+          <h1 class="text-3xl md:text-4xl font-bold mb-2 tracking-wide drop-shadow-md">BUEMFOOD</h1>
+          <p id="headerSubtitle" class="text-sm font-light tracking-wider opacity-90">ระบบเพิ่มออเดอร์ใหม่</p>
+        </div>
+      </div>
+
+      <div class="flex bg-white rounded-2xl shadow-lg mx-4 -mt-10 relative z-20 p-2 gap-2 overflow-x-auto no-scrollbar border border-gray-50">
+        <button id="btnOrder" onclick="switchTab('orderTab', this)" class="tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 text-emerald-600 shadow-sm transition-all whitespace-nowrap">
+          <span class="block text-lg mb-1">📝</span> เพิ่มออเดอร์
+        </button>
+        <button id="btnTrack" onclick="switchTab('trackTab', this)" class="tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all whitespace-nowrap">
+          <span class="block text-lg mb-1 grayscale opacity-50 transition-all">🚚</span> อัปเดตพัสดุ
+        </button>
+        <button id="btnManage" onclick="switchTab('manageTab', this)" class="tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all whitespace-nowrap">
+          <span class="block text-lg mb-1 grayscale opacity-50 transition-all">⚙️</span> จัดการข้อมูล
+        </button>
+      </div>
+
+      <div class="p-4 sm:p-8 flex-1 relative mt-2">
+        
+        <div id="orderTab" class="tab-content block animate-fade-in">
+          <textarea id="rawOrderText" class="w-full h-72 sm:h-96 p-5 border-2 border-gray-100 rounded-3xl bg-gray-50 focus:bg-white focus:border-emerald-400 outline-none transition-all shadow-inner text-gray-700 text-sm sm:text-base leading-relaxed" placeholder="วางข้อมูลออเดอร์ตรงนี้..."></textarea>
+          <button onclick="submitBulkOrder()" class="w-full mt-6 theme-green text-white font-bold py-5 rounded-2xl shadow-lg hover:shadow-emerald-500/50 hover:opacity-90 transition-all active:scale-95 text-lg">
+            🚀 บันทึกออเดอร์ใหม่
+          </button>
+        </div>
+
+        <div id="trackTab" class="tab-content hidden animate-fade-in">
+          <textarea id="rawTrackText" class="w-full h-48 sm:h-64 p-5 border-2 border-gray-100 rounded-3xl bg-gray-50 focus:bg-white focus:border-blue-400 outline-none transition-all shadow-inner text-gray-700 text-sm sm:text-base leading-relaxed" placeholder="ชื่อ และ เลขพัสดุ..."></textarea>
+          <button onclick="submitTracking()" class="w-full mt-6 theme-blue text-white font-bold py-5 rounded-2xl shadow-lg hover:shadow-blue-500/50 hover:opacity-90 transition-all active:scale-95 text-lg">
+            🔍 Match เลขพัสดุอัจฉริยะ
+          </button>
+          
+          <div id="potentialArea" class="mt-8 hidden animate-fade-in">
+            <h3 class="text-orange-600 font-bold mb-4 flex items-center bg-orange-50 p-4 rounded-2xl border border-orange-100 shadow-sm text-sm">
+              <span class="mr-2 text-xl">⚠️</span> รายการที่ "น่าจะใช่" (กดยืนยัน)
+            </h3>
+            <div id="potentialList" class="space-y-4"></div>
+          </div>
+          <div id="resultArea" class="mt-6 space-y-3"></div>
+        </div>
+
+        <div id="manageTab" class="tab-content hidden animate-fade-in">
+          <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <input type="text" id="adminSearchInput" placeholder="🔍 ค้นหาด้วยชื่อ หรือ เบอร์โทร..." class="flex-1 p-4 border-2 border-gray-100 rounded-2xl outline-none focus:border-purple-400 bg-gray-50 focus:bg-white transition-all shadow-sm text-sm">
+            <button onclick="loadManageData()" class="theme-purple text-white py-4 px-8 rounded-2xl font-bold hover:shadow-purple-500/50 shadow-md transition-all active:scale-95">ค้นหาข้อมูล</button>
+          </div>
+          
+          <div class="overflow-x-auto border-2 border-gray-50 rounded-3xl shadow-sm bg-white">
+            <table class="w-full text-left whitespace-nowrap min-w-[600px]">
+              <thead class="bg-gray-50 text-gray-400 uppercase text-xs tracking-wider border-b-2 border-gray-100">
+                <tr>
+                  <th class="p-4 font-bold rounded-tl-3xl">👤 ชื่อลูกค้า</th>
+                  <th class="p-4 font-bold">📱 เบอร์โทร</th>
+                  <th class="p-4 font-bold">📦 เลขพัสดุ</th>
+                  <th class="p-4 font-bold text-center rounded-tr-3xl">⚙️ จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="manageTableBody" class="divide-y divide-gray-50 text-sm">
+                </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="loader" class="hidden absolute inset-0 bg-white bg-opacity-90 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+        <div class="loader rounded-full border-4 border-t-4 border-gray-200 h-16 w-16 mb-4 text-blue-500"></div>
+        <p class="font-bold text-gray-500 animate-pulse">กำลังประมวลผล...</p>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div id="editModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity">
+    <div class="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="theme-purple p-6 text-white flex justify-between items-center shadow-md z-10">
+        <span class="font-bold text-lg tracking-wide">✏️ แก้ไขข้อมูลออเดอร์</span>
+        <button onclick="closeModal()" class="text-white hover:text-red-200 bg-white bg-opacity-20 rounded-full w-8 h-8 flex items-center justify-center transition focus:outline-none">✕</button>
+      </div>
+      
+      <div class="p-6 space-y-4 overflow-y-auto bg-gray-50 flex-1 no-scrollbar">
+        
+        <input type="hidden" id="editRowIndex">
+        <input type="hidden" id="editAddress">
+        <input type="hidden" id="editProduct">
+        <input type="hidden" id="editFlavor">
+        <input type="hidden" id="editCarrier">
+        <input type="hidden" id="editCod">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-purple-600 font-bold uppercase tracking-wider mb-1 block">ชื่อลูกค้า</label>
+            <input type="text" id="editName" class="w-full p-3 border-2 border-gray-200 rounded-xl outline-none focus:border-purple-400 bg-white shadow-sm transition-all">
+          </div>
+          <div>
+            <label class="text-xs text-purple-600 font-bold uppercase tracking-wider mb-1 block">เบอร์โทร</label>
+            <input type="text" id="editPhone" class="w-full p-3 border-2 border-gray-200 rounded-xl outline-none focus:border-purple-400 bg-white shadow-sm transition-all">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-xs text-purple-600 font-bold uppercase tracking-wider mb-1 block">เลขพัสดุ</label>
+            <input type="text" id="editTrack" class="w-full p-3 border-2 border-purple-300 rounded-xl text-purple-700 font-bold outline-none focus:border-purple-500 bg-purple-50 shadow-sm font-mono tracking-widest transition-all">
+          </div>
+        </div>
+      </div>
+
+      <div class="p-5 bg-white border-t border-gray-100 flex gap-3">
+        <button onclick="closeModal()" class="flex-1 p-4 bg-gray-100 rounded-2xl font-bold text-gray-600 hover:bg-gray-200 transition active:scale-95">ยกเลิก</button>
+        <button onclick="saveEdit()" class="flex-1 p-4 theme-purple rounded-2xl font-bold text-white hover:opacity-90 transition shadow-lg shadow-purple-500/30 active:scale-95">💾 บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script>
+    // ==========================================
+    // UI ควบคุมการสลับแท็บและการเปลี่ยนสี (New Logic)
+    // ==========================================
+    function switchTab(tabId, btnElement) {
+      // 1. ซ่อนเนื้อหาทั้งหมด
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+
+      // 2. รีเซ็ตปุ่มทั้งหมดให้เป็นสีเทา (Inactive state)
+      const allBtns = document.querySelectorAll('.tab-btn');
+      allBtns.forEach(btn => {
+        btn.className = "tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all whitespace-nowrap";
+        btn.querySelector('span').classList.add('grayscale', 'opacity-50');
+      });
+
+      // 3. กำหนดสีปุ่มที่ถูกเลือก (Active state) และเปลี่ยนสี Header
+      const header = document.getElementById('headerBar');
+      const subtitle = document.getElementById('headerSubtitle');
+      const loaderIcon = document.querySelector('.loader');
+
+      btnElement.querySelector('span').classList.remove('grayscale', 'opacity-50');
+
+      if (tabId === 'orderTab') {
+        btnElement.className = "tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 text-emerald-600 shadow-sm transition-all whitespace-nowrap";
+        header.className = "theme-green transition-all duration-500 ease-in-out text-white relative overflow-hidden pb-8";
+        subtitle.innerText = "ระบบเพิ่มออเดอร์ใหม่";
+        loaderIcon.classList.replace('text-blue-500', 'text-emerald-500');
+        loaderIcon.classList.replace('text-purple-500', 'text-emerald-500');
+      } 
+      else if (tabId === 'trackTab') {
+        btnElement.className = "tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-50 text-blue-600 shadow-sm transition-all whitespace-nowrap";
+        header.className = "theme-blue transition-all duration-500 ease-in-out text-white relative overflow-hidden pb-8";
+        subtitle.innerText = "ระบบอัปเดตและจับคู่เลขพัสดุ";
+        loaderIcon.classList.replace('text-emerald-500', 'text-blue-500');
+        loaderIcon.classList.replace('text-purple-500', 'text-blue-500');
+      } 
+      else if (tabId === 'manageTab') {
+        btnElement.className = "tab-btn flex-1 min-w-[100px] py-3 px-2 rounded-xl text-xs sm:text-sm font-bold bg-purple-50 text-purple-600 shadow-sm transition-all whitespace-nowrap";
+        header.className = "theme-purple transition-all duration-500 ease-in-out text-white relative overflow-hidden pb-8";
+        subtitle.innerText = "จัดการแก้ไขและลบข้อมูลออเดอร์";
+        loaderIcon.classList.replace('text-emerald-500', 'text-purple-500');
+        loaderIcon.classList.replace('text-blue-500', 'text-purple-500');
+        loadManageData(); // โหลดข้อมูลเมื่อเข้าหน้านี้
+      }
+    }
+
+    function toggleLoader(show) {
+      document.getElementById('loader').classList.toggle('hidden', !show);
+    }
+
+    // ==========================================
+    // Core Functions (ของเดิมคุณเบิ้ม 100%)
+    // ==========================================
+    function submitBulkOrder() {
+      const text = document.getElementById('rawOrderText').value;
+      if(!text.trim()) return alert('กรุณาวางข้อมูลออเดอร์ก่อนครับ');
+      toggleLoader(true);
+      google.script.run.withSuccessHandler(res => {
+        toggleLoader(false);
+        if(res.status === 'error') return alert(res.message);
+        alert(`✅ บันทึกออเดอร์สำเร็จ ${res.count} รายการ`);
+        document.getElementById('rawOrderText').value = '';
+      }).saveBulkOrders(text);
+    }
+
+    function submitTracking() {
+      const text = document.getElementById('rawTrackText').value;
+      if(!text.trim()) return alert('กรุณาวางข้อมูลพัสดุก่อนครับ');
+      toggleLoader(true, "กำลังค้นหาและจับคู่เลขพัสดุ...");
+      document.getElementById('potentialArea').classList.add('hidden');
+      
+      google.script.run.withSuccessHandler(res => {
+        toggleLoader(false);
+        
+        if(res.potential && res.potential.length > 0) {
+          document.getElementById('potentialArea').classList.remove('hidden');
+          const list = document.getElementById('potentialList');
+          list.innerHTML = '';
+          res.potential.forEach(item => {
+            list.innerHTML += `
+              <div class="bg-white p-6 rounded-3xl border border-orange-200 shadow-md mb-4" id="row-${item.rowIndex}">
+                <div class="flex justify-between items-center text-xs sm:text-sm mb-4 text-orange-800 font-bold">
+                  <span class="bg-orange-100 px-3 py-1 rounded-full">🚚 จากขนส่ง: ${item.carrierName}</span>
+                  <span class="font-mono bg-gray-100 px-3 py-1 rounded-full">${item.track}</span>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <input type="text" value="${item.sheetName}" id="input-${item.rowIndex}" 
+                         style="width: 100%; padding: 16px; border: 2px solid #ffedd5; border-radius: 16px; background-color: #f9fafb; font-size: 14px; outline: none;">
+                  
+                  <button onclick="confirmItem(${item.rowIndex}, '${item.track}')" 
+                          style="width: 100%; min-height: 56px; background-color: #f97316; color: white; border: none; border-radius: 16px; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px !important;">
+                    <span style="font-size: 20px;">✅</span>
+                    <span style="display: inline !important; visibility: visible !important; color: white !important;">ยืนยันข้อมูลนี้</span>
+                  </button>
+                </div>
+              </div>`;
+          });
+        } else {
+           alert('🚚 Match เลขพัสดุสำเร็จ!');
+           document.getElementById('rawTrackText').value = '';
+        }
+      }).withFailureHandler(err => {
+          toggleLoader(false);
+          alert("เกิดข้อผิดพลาด: " + err.message);
+      }).processTrackingText(text);
+    }
+
+    function confirmItem(rowIndex, track) {
+      const name = document.getElementById(`input-${rowIndex}`).value;
+      toggleLoader(true);
+      google.script.run.withSuccessHandler(() => {
+        toggleLoader(false);
+        const row = document.getElementById(`row-${rowIndex}`);
+        row.innerHTML = `<div class="text-center text-green-600 font-bold py-4 bg-green-50 rounded-2xl border border-green-200">✅ ยืนยันข้อมูลสำเร็จ</div>`;
+        setTimeout(() => row.classList.add('hidden'), 2000);
+      }).confirmSuggestedMatch(rowIndex, name, track);
+    }
+
+    // ==========================================
+    // Data Management
+    // ==========================================
+    let currentData = [];
+
+    function loadManageData() {
+      const query = document.getElementById('adminSearchInput').value;
+      toggleLoader(true);
+      
+      google.script.run.withSuccessHandler(res => {
+        toggleLoader(false);
+        if(res.status === "error") return alert("เกิดข้อผิดพลาด: " + res.message);
+        
+        currentData = res.data;
+        const tbody = document.getElementById('manageTableBody');
+        tbody.innerHTML = '';
+
+        if(currentData.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-gray-400 italic">ไม่พบข้อมูลที่ค้นหา</td></tr>`;
+          return;
+        }
+
+        currentData.forEach((item, index) => {
+          const trackDisplay = item.track 
+            ? `<div class="flex items-center gap-2">
+                 <span class="font-mono text-purple-700 bg-purple-50 px-2 py-1 rounded border border-purple-100 text-xs">${item.track}</span>
+                 <button onclick="copyAdminTrack('${item.track}')" class="text-gray-400 hover:text-purple-600 transition p-1.5 bg-gray-50 hover:bg-purple-100 rounded-lg" title="คัดลอกเลขพัสดุ">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                 </button>
+               </div>`
+            : `<span class="text-gray-400 italic text-[10px] sm:text-xs bg-gray-50 px-2 py-1 rounded">รอจัดส่ง</span>`;
+
+          tbody.innerHTML += `
+            <tr class="hover:bg-purple-50 transition border-b border-gray-50 last:border-0">
+              <td class="p-4">
+                <p class="font-bold text-gray-800 leading-tight">${item.name}</p>
+                <p class="text-[10px] text-gray-500 mt-1 truncate max-w-[120px] sm:max-w-none">${item.carrier}</p>
+              </td>
+              <td class="p-4 text-xs font-medium text-gray-600">${item.phone}</td>
+              <td class="p-4">${trackDisplay}</td>
+              <td class="p-4 text-center">
+  <div class="flex justify-center gap-1 sm:gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+    
+    <button onclick="copyToCustomer(${index})" class="text-blue-600 bg-white hover:bg-blue-50 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow border border-blue-100 hover:border-blue-300" title="คัดลอกส่งให้ลูกค้า">
+      🔗 <span class="hidden sm:inline ml-1">ส่งลูกค้า</span>
+    </button>
+
+    <button onclick="openEditModal(${index})" class="text-gray-700 bg-white hover:bg-yellow-50 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow border border-gray-200 hover:border-yellow-300">
+      ✏️ <span class="hidden sm:inline ml-1">แก้ไข</span>
+    </button>
+    
+    <button onclick="deleteData(${item.rowIndex}, '${item.name}')" class="text-gray-700 bg-white hover:bg-red-50 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow border border-gray-200 hover:border-red-300">
+      🗑️
+    </button>
+  </div>
+</td>
+            </tr>
+          `;
+        });
+      }).searchForAdmin(query);
+    }
+
+    function copyAdminTrack(track) {
+      navigator.clipboard.writeText(track);
+      alert('📋 คัดลอกเลขพัสดุ: ' + track + ' เรียบร้อยแล้ว');
+    }
+
+    function openEditModal(index) {
+      const item = currentData[index];
+      document.getElementById('editRowIndex').value = item.rowIndex;
+      document.getElementById('editName').value = item.name;
+      document.getElementById('editPhone').value = item.phone;
+      document.getElementById('editAddress').value = item.address;
+      document.getElementById('editProduct').value = item.product;
+      document.getElementById('editFlavor').value = item.flavor;
+      document.getElementById('editCarrier').value = item.carrier;
+      document.getElementById('editCod').value = item.cod;
+      document.getElementById('editTrack').value = item.track;
+      
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    function saveEdit() {
+      const rowIndex = document.getElementById('editRowIndex').value;
+      const newData = {
+        name: document.getElementById('editName').value,
+        phone: document.getElementById('editPhone').value,
+        address: document.getElementById('editAddress').value,
+        product: document.getElementById('editProduct').value,
+        flavor: document.getElementById('editFlavor').value,
+        carrier: document.getElementById('editCarrier').value,
+        cod: document.getElementById('editCod').value,
+        track: document.getElementById('editTrack').value,
+      };
+
+      toggleLoader(true);
+      closeModal();
+      google.script.run.withSuccessHandler(res => {
+        if(res === 'success') {
+          loadManageData();
+        } else {
+          toggleLoader(false);
+          alert('เกิดข้อผิดพลาด: ' + res);
+        }
+      }).updateOrderRow(rowIndex, newData);
+    }
+
+    function deleteData(rowIndex, name) {
+      if(confirm(`⚠️ ยืนยันการลบออเดอร์ของ:\nคุณ ${name}\n\n(ข้อมูลจะถูกลบออกจากระบบทันทีและไม่สามารถกู้คืนได้)`)) {
+        toggleLoader(true);
+        google.script.run.withSuccessHandler(res => {
+          if(res === 'success') {
+            loadManageData();
+          } else {
+            toggleLoader(false);
+            alert('เกิดข้อผิดพลาด: ' + res);
+          }
+        }).deleteOrderRow(rowIndex);
+      }
+    }
+    
+    // 1. ฟังก์ชันสร้างลิงก์ (แยกออกมาให้เรียกใช้ง่ายๆ)
+// 1. ฟังก์ชันฉลาดๆ: ตรวจสอบขนส่งจากเลขพัสดุและสร้างลิงก์
+function getCarrierLink(carrier, trackId) {
+  const track = String(trackId || "").trim().toUpperCase();
+  const carrierInput = String(carrier || "").toLowerCase().trim();
+  
+  if (!track) return "";
+
+  const config = {
+    flash: "https://www.flashexpress.co.th/tracking/?track_number=",
+    thailandpost: "https://track.thailandpost.co.th/?trackNumber=",
+    jnt: "https://www.jtexpress.co.th/index/query/gzquery.html?billcode=",
+    kerry: "https://th.kerryexpress.com/th/track/?track=",
+    best: "https://www.best-inc.co.th/track?bills=",
+    shopee: "https://spx.co.th/m/track?btns="
+  };
+
+  let baseUrl = "";
+
+  // เช็คจากชื่อที่บันทึกไว้ก่อน
+  if (carrierInput.includes("flash") || carrierInput.includes("แฟลช")) baseUrl = config.flash;
+  else if (carrierInput.includes("ไปรษณีย์") || carrierInput.includes("ems")) baseUrl = config.thailandpost;
+  else if (carrierInput.includes("j&t") || carrierInput.includes("jnt")) baseUrl = config.jnt;
+  else if (carrierInput.includes("kerry") || carrierInput.includes("เคอรี่")) baseUrl = config.kerry;
+  else if (carrierInput.includes("best") || carrierInput.includes("เบส")) baseUrl = config.best;
+  else if (carrierInput.includes("shopee") || carrierInput.includes("spx")) baseUrl = config.shopee;
+
+  // ถ้าชื่อไม่ชัดเจน ให้สแกนจากรูปแบบเลขพัสดุ (Smart Detection)
+  if (!baseUrl) {
+    if (track.startsWith("TH") || (track.length === 12 && track.startsWith("8"))) baseUrl = config.flash;
+    else if (/^[A-Z]{2}\d{9}TH$/.test(track)) baseUrl = config.thailandpost;
+    else if (track.startsWith("SHP") || track.startsWith("SPX")) baseUrl = config.shopee;
+    else if (track.length === 12 && (track.startsWith("82") || track.startsWith("61") || track.startsWith("62"))) baseUrl = config.jnt;
+    else if (track.startsWith("KEX") || track.startsWith("KER") || track.startsWith("12")) baseUrl = config.kerry;
+  }
+
+  // ถ้าจนปัญญาจริงๆ ส่งไป Google
+  return (baseUrl || "https://www.google.com/search?q=เช็คพัสดุ+") + track;
+}
+
+// 2. ฟังก์ชันคัดลอกข้อความส่งลูกค้า (ฉบับแก้บัค กดติดชัวร์)
+function copyToCustomer(index) {
+  try {
+    const item = currentData[index];
+    if (!item || !item.track) return alert("❌ ออเดอร์นี้ไม่มีเลขพัสดุครับ");
+
+    const trackId = String(item.track).trim();
+    const link = getCarrierLink(item.carrier, trackId);
+    
+    // ข้อความที่จะส่งให้ลูกค้า
+    const msg = `คุณ ${item.name}\nเลขพัสดุของคุณคือ: ${trackId}\nเช็คสถานะได้ที่นี่: ${link}`;
+
+    // ลองคัดลอกด้วยวิธีมาตรฐาน
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(msg).then(() => {
+        alert("📋 คัดลอกข้อความของ คุณ " + item.name + " เรียบร้อย!");
+      }).catch(() => {
+        execCopyFallback(msg, item.name); // ถ้าวิธีแรกพลาด ให้ใช้ตัวสำรอง
+      });
+    } else {
+      execCopyFallback(msg, item.name); // ถ้าไม่ใช่ https ให้ใช้ตัวสำรอง
+    }
+  } catch (err) {
+    alert("เกิดข้อผิดพลาด: " + err.message);
+  }
+}
+
+// 3. ฟังก์ชันคัดลอกตัวสำรอง (ใช้วิธีสร้างช่องข้อความหลอก)
+function execCopyFallback(text, customerName) {
+  const dummy = document.createElement("textarea");
+  document.body.appendChild(dummy);
+  dummy.value = text;
+  dummy.select();
+  try {
+    const successful = document.execCommand("copy");
+    if(successful) alert("📋 คัดลอกข้อความของ คุณ " + customerName + " เรียบร้อย!");
+    else alert("❌ ไม่สามารถคัดลอกได้ กรุณาลองใหม่อีกครั้ง");
+  } catch (err) {
+    alert("❌ Error: " + err);
+  }
+  document.body.removeChild(dummy);
+}
+
+
+  </script>
+</body>
+</html>
